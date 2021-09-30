@@ -1,1 +1,1 @@
-# CoDing_Sequence_Frame_Prediction_From_DNA_Reads
+# MetaFrame
