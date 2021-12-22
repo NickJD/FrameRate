@@ -12,14 +12,14 @@ from keras.utils import np_utils
 from tensorflow.keras.utils import Sequence #, multi_gpu_model
 import scipy.stats as ss
 
-def get_params():
-    pi = 11
+def get_params(param_set):
+    pi = param_set
     params = {}
     if pi != -1:
         max_kernels = [17, 33, 65]
         nb_filters = [8, 16]
         dense_units = [8, 16, 32]
-        pool_sizes = [10, 20]#200
+        pool_sizes = [10, 20]#200 - test with 5,10,15
         params['max_kernel'] = max_kernels[pi % len(max_kernels)]
         pi //= len(max_kernels)
         params['nb_filters'] = nb_filters[pi % len(nb_filters)]
@@ -42,12 +42,10 @@ def repeat_to_length(s, wanted):
     return (s * (wanted//len(s) + 1))[:wanted]
 
 
-#MAXLEN used to be 22 but moved to 26 because new AAs from Swissprot
-def to_onehot(seq, aaindex, MAXLEN = 75, repeat=True):
-    onehot = np.zeros((MAXLEN, 21), dtype=np.int32)
+
+def to_onehot(seq, aaindex, MAXLEN = 75, repeat=False):
+    onehot = np.zeros((MAXLEN, 20), dtype=np.int32) # after change aindex I can change to 20 here
     #original_len = min(MAXLEN, len(seq))
-    if len(seq) < 75:
-        print("E")
     if repeat == True:
         seq = repeat_to_length(seq, MAXLEN)
     for i in range(len(seq)): # used to be original_len
@@ -71,7 +69,7 @@ class seq_Generator(Sequence):
     def __getitem__(self, idx):
         start = idx * self.batch_size
         batch_len = min(self.batch_size, (self.length)-start)
-        X_batch = np.empty((batch_len, self.MAXLEN,21), dtype=np.float32)
+        X_batch = np.empty((batch_len, self.MAXLEN,20), dtype=np.float32)
         y_batch = np.empty(batch_len, dtype=np.float32)
 
         for ids in range(start, min((idx + 1) * self.batch_size, self.length)):
@@ -81,7 +79,7 @@ class seq_Generator(Sequence):
         return [X_batch], y_batch
     
 def get_seq_model(params,MAXLEN = 75):
-    seq = Input(shape=(MAXLEN, 21), dtype=np.float32)
+    seq = Input(shape=(MAXLEN, 20), dtype=np.float32)
     kernels = range(8, params['max_kernel'], 8)
     nets = []
     for i in range(len(kernels)):

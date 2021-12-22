@@ -12,8 +12,8 @@ from keras.utils import np_utils
 from tensorflow.keras.utils import Sequence #, multi_gpu_model
 import scipy.stats as ss
 
-def get_params():
-    pi = 11
+def get_params(param_set):
+    pi = param_set
     params = {}
     if pi != -1:
         max_kernels = [17, 33, 65]
@@ -28,7 +28,7 @@ def get_params():
         pi //= len(pool_sizes)
         params['dense_units'] = dense_units[pi % len(dense_units)]
         pi //= len(dense_units)
-    print('Params:', params)
+    #print('Params:', params)
     return params
 
 
@@ -38,21 +38,24 @@ def split_train(data, split1, split2):
     test = data[int(split2*len(data)):]
     return train, val, test
 
+def repeat_to_length(s, wanted):
+    return (s * (wanted//len(s) + 1))[:wanted]
+
 
 #MAXLEN used to be 22 but moved to 26 because new AAs from Swissprot
-def to_onehot(seq, aaindex, MAXLEN = 100, repeat=False):
-    onehot = np.zeros((MAXLEN, 21), dtype=np.int32)
+def to_onehot(seq, aaindex, MAXLEN = 75, repeat=False):
+    onehot = np.zeros((MAXLEN, 20), dtype=np.int32)
     #original_len = min(MAXLEN, len(seq))
     if repeat == True:
         seq = repeat_to_length(seq, MAXLEN)
     for i in range(len(seq)): # used to be original_len
         onehot[i, aaindex.get(seq[i])] = 1
-    onehot[len(seq):, 0] = 1 # used to be original_len
+    #onehot[len(seq):, 0] = 1 # used to be original_len
     return onehot
 
 
 class seq_Generator(Sequence):
-    def __init__(self, x_set, y_set, batch_size, prot2embed, MAXLEN = 100):
+    def __init__(self, x_set, y_set, batch_size, prot2embed, MAXLEN = 75):
         self.x, self.y = x_set, y_set
         self.batch_size = batch_size
         self.nbatch = int(np.ceil(len(self.x) / float(self.batch_size)))
@@ -66,7 +69,7 @@ class seq_Generator(Sequence):
     def __getitem__(self, idx):
         start = idx * self.batch_size
         batch_len = min(self.batch_size, (self.length)-start)
-        X_batch = np.empty((batch_len, self.MAXLEN,21), dtype=np.float32)
+        X_batch = np.empty((batch_len, self.MAXLEN,20), dtype=np.float32)
         y_batch = np.empty(batch_len, dtype=np.float32)
 
         for ids in range(start, min((idx + 1) * self.batch_size, self.length)):
@@ -75,8 +78,8 @@ class seq_Generator(Sequence):
             y_batch[ids-start] = self.y[ids]
         return [X_batch], y_batch
     
-def get_seq_model(params,MAXLEN = 100):
-    seq = Input(shape=(MAXLEN, 21), dtype=np.float32)
+def get_seq_model(params,MAXLEN = 75):
+    seq = Input(shape=(MAXLEN, 20), dtype=np.float32)
     kernels = range(8, params['max_kernel'], 8)
     nets = []
     for i in range(len(kernels)):

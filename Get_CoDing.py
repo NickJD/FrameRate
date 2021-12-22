@@ -2,6 +2,7 @@ import gzip
 import glob
 import collections
 import os
+import re
 import sys
 
 
@@ -34,8 +35,16 @@ gencode = {
       'GGA':'G', 'GGC':'G', 'GGG':'G', 'GGT':'G',
       'TCA':'S', 'TCC':'S', 'TCG':'S', 'TCT':'S',
       'TTC':'F', 'TTT':'F', 'TTA':'L', 'TTG':'L',
-      'TAC':'Y', 'TAT':'Y', 'TAA':'', 'TAG':'',  ##Stop stars removed
+      'TAC':'Y', 'TAT':'Y', 'TAA':'', 'TAG':'*',  ##Stop stars removed
       'TGC':'C', 'TGT':'C', 'TGA':'', 'TGG':'W'}
+
+def check_For_Stops(aa_seq): #Check if frame has stops (*) and if they cut the seq down too far
+    stops = []
+    stops += [match.start() for match in re.finditer(re.escape('*'), aa_seq)]
+    for stop in stops:
+        if stop > 5 and stop < 70: # not finished
+            return None
+    return aa_seq
 
 def translate_frame(sequence):
     translate = ''.join([gencode.get(sequence[3 * i:3 * i + 3], 'X') for i in range(len(sequence) // 3)])
@@ -66,7 +75,7 @@ def fasta_load(sequences,fasta_in):
 
 sequences = collections.OrderedDict()
 aa_sequences = collections.OrderedDict()
-out = open('./Extended_CoDing_Sequences_For_Training_Biggest.faa','w')
+out = open('./Extended_CoDing_Sequences_For_Training_Biggest_tmp.faa','w')
 
 count = 0
 current_counter = 0
@@ -75,7 +84,7 @@ seq_counter = 0
 seen_aa = collections.defaultdict()
 seen_aa_genera = collections.defaultdict(int)
 
-genera_seen = []
+genera_seen = collections.defaultdict(list)
 
 def get_Genus(clustered):
     clustered_genus = clustered.split('|')[0]
@@ -87,89 +96,104 @@ def get_Genus(clustered):
 
 
 
-for gff_file in sorted(glob.glob('/home/nick/Desktop/Ensem/CDS/*.fa.gz'), key=os.path.getsize):
+for gff_file in glob.glob('/home/nick/Desktop/Ensem/CDS/*.fa.gz'):
     current_genus = get_Genus(gff_file.split('/')[6])
-    if current_genus not in genera_seen:
+    #if current_genus not in genera_seen:
     #if "Xylella" in current_taxa:
-        genera_seen.append(current_genus)
-        print(gff_file)
-        fasta_in = gzip.open(gff_file, 'rt')
-        sequences = fasta_load(sequences,fasta_in)
-        seen_aa_genera[current_genus] += 1
+    size = os.path.getsize(gff_file)
+    genera_seen[current_genus].append([gff_file,size])
+
+number_of_CDSs = 0
+
+for genera, data in genera_seen.items():
+    size = 0
+    genome = ""
+    for genus in data:
+        if genus[1] > size:
+            size = genus[1]
+            genome = genus[0]
 
 
-        for seq_name, seq in sequences.items():
-            rev_seq = revCompIterative(seq)
-            #rev_seq = rev_seq[::-1] # maybe?
 
-            aa_seq = translate_frame(seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
+    print(genome)
+    genus = get_Genus(genome.split('/')[6])
+    fasta_in = gzip.open(genome, 'rt')
+    sequences = fasta_load(sequences,fasta_in)
+    number_of_CDSs += len(sequences)
+    for seq_name, seq in sequences.items():
+        seq_name = seq_name.replace('>','')
+        rev_seq = revCompIterative(seq)
+        #rev_seq = rev_seq[::-1] # maybe?
 
-                #aa_sequences.update({seq_name+'_0': aa_seq})
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count)+',1\n'+aa_seq+'\n')
-                seq_counter +=1
+        aa_seq = translate_frame(seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
 
-            tmp_seq = seq[1:]
-            aa_seq = translate_frame(tmp_seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
+            #aa_sequences.update({seq_name+'_0': aa_seq})
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count)+',1\n'+aa_seq+'\n')
+            seq_counter +=1
 
-                #aa_sequences.update({seq_name+'_1': aa_seq})
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
-                seq_counter +=1
+        tmp_seq = seq[1:]
+        aa_seq = translate_frame(tmp_seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
 
-            tmp_seq = tmp_seq[1:]
-            aa_seq = translate_frame(tmp_seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
+            #aa_sequences.update({seq_name+'_1': aa_seq})
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
+            seq_counter +=1
 
-                #aa_sequences.update({seq_name+'_2': aa_seq})
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
-                seq_counter +=1
-    ####################################################GGaaaaaaaatttatatat
-            aa_seq = translate_frame(rev_seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
-                #seen_aa_taxa[current_taxa] += 1
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
-                seq_counter +=1
-                #aa_sequences.update({seq_name+'_3': aa_seq})
+        tmp_seq = tmp_seq[1:]
+        aa_seq = translate_frame(tmp_seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
 
-            tmp_rev_seq = rev_seq[1:]
-            aa_seq = translate_frame(tmp_rev_seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
+            #aa_sequences.update({seq_name+'_2': aa_seq})
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
+            seq_counter +=1
+####################################################GGaaaaaaaatttatatat
+        aa_seq = translate_frame(rev_seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
+            #seen_aa_taxa[current_taxa] += 1
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
+            seq_counter +=1
+            #aa_sequences.update({seq_name+'_3': aa_seq})
 
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
-                seq_counter +=1
-                #aa_sequences.update({seq_name+'_4': aa_seq})
+        tmp_rev_seq = rev_seq[1:]
+        aa_seq = translate_frame(tmp_rev_seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
 
-            tmp_rev_seq = tmp_rev_seq[1:]
-            aa_seq = translate_frame(tmp_rev_seq)
-            aa_seq = aa_seq[1:]
-            if aa_seq not in seen_aa:
-                seen_aa[aa_seq] = None
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
+            seq_counter +=1
+            #aa_sequences.update({seq_name+'_4': aa_seq})
 
-                out.write(seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
-                seq_counter +=1
-                #aa_sequences.update({seq_name+'_5': aa_seq})
+        tmp_rev_seq = tmp_rev_seq[1:]
+        aa_seq = translate_frame(tmp_rev_seq)
+        aa_seq = aa_seq[1:]
+        if aa_seq not in seen_aa:
+            seen_aa[aa_seq] = None
 
-            #print("W")
-            count +=1
-        current_counter += 1
-        #print(current_counter)
-        # if current_counter > 99:
-        #     sys.exit()
-        #break
+            out.write('>'+genus+'_'+seq_name+'_'+str(seq_counter)+','+str(count) + ',0\n' + aa_seq+'\n')
+            seq_counter +=1
+            #aa_sequences.update({seq_name+'_5': aa_seq})
 
+        #print("W")
+        count +=1
+    current_counter += 1
+    #print(current_counter)
+    # if current_counter > 99:
+    #     sys.exit()
+    #break
+print(number_of_CDSs)
 print(len(seen_aa))
-print(seen_aa_taxa)
+
+
 
     # dna_regions.update({dna_region_id: (seq, dna_region_length, list(), None)})
     # for line in genome:

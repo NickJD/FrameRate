@@ -1,7 +1,7 @@
 
 
-input = open('./Extended_CoDing_Sequences_For_Training_CD_80.fa','r')
-out = open('./Extended_CoDing_Sequences_For_Training.csv','w')
+input = open('./Extended_CoDing_Sequences_For_Training_Biggest.faa_CD_60.fa','r')
+out = open('./Extended_CoDing_Sequences_For_Training_Biggest.faa_CD_60.csv','w')
 
 first = True
 for line in input:
