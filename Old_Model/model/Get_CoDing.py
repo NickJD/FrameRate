@@ -96,7 +96,7 @@ def get_Genus(clustered):
 
 
 
-for gff_file in glob.glob('/home/nick/Desktop/Ensem/CDS/*.fa.gz'):
+for gff_file in glob.glob('/home/nick/Nextcloud/Ensem/CDS/*.fa.gz'):
     current_genus = get_Genus(gff_file.split('/')[6])
     #if current_genus not in genera_seen:
     #if "Xylella" in current_taxa:

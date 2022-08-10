@@ -26,7 +26,7 @@ from predictor import predictor
 import sys
 import re
 
-#tf.config.set_visible_devices([], 'GPU') # TO Run CPU
+
 
 
 def remove_char(str, n):
@@ -177,10 +177,12 @@ if __name__ == "__main__":
                         help='Pretrained model to use')
     parser.add_argument('-o', '--output_prefix', action='store', dest='out_prefix',
                         help='Output prefix')
-
+    parser.add_argument('-GPU', action="store", dest='gpu', default=False, type=eval, choices=[True, False],
+                        help='Default - False: Use GPU for computation')
     options = parser.parse_args()
 
-
+    if options.gpu == True:
+        tf.config.set_visible_devices([], 'GPU') # not implemented yet and will fail if user has not setup tensorflow GPU
 
 
     ##### Convert DNA reads into AA frames
