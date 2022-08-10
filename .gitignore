@@ -22,3 +22,5 @@ Extended_CoDing_Sequences_For_Training.csv
 Extended_CoDing_Sequences_For_Training.fa
 
 Old_Model/classifier/__pycache__/
+
+Training_Prep/Ensembl_CDS_Genes_Combined.fasta.gz
