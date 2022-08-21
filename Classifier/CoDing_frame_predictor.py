@@ -1,33 +1,10 @@
 import argparse
 import collections
 import keras
-import random
-import itertools
-import gc
-
-from keras.callbacks import ModelCheckpoint, EarlyStopping, CSVLogger
-import numpy as np
-from keras.models import Model, load_model
-from keras.layers import (
-    Input, Dense, Embedding, Conv1D, Flatten, Concatenate,
-    MaxPooling1D, Dropout, Dot, LeakyReLU
-)
-from keras import backend as K
-#from tensorflow.compat.v1.keras import backend as K
-from tensorflow.keras.optimizers import Adam, RMSprop
-from sklearn.metrics import roc_auc_score, average_precision_score
-from keras.utils import np_utils
-from tensorflow.keras.utils import Sequence
-
-import scipy.stats as ss
-#import tensorflow as tf
 import tensorflow.compat.v1 as tf
 from predictor import predictor
-import sys
 import re
-
-
-
+from utils import *
 
 def remove_char(str, n):
     first_part = str[:n]
@@ -35,15 +12,12 @@ def remove_char(str, n):
     return first_part + last_part
 
 def check_For_Stops(aa_seq): #Check if frame has stops (*) and if they cut the seq down too far
-    aa_seq = aa_seq[:75] # takes first 75 aa - Not good
-    stops = []
-    stops += [match.start() for match in re.finditer(re.escape('*'), aa_seq)]
-    for stop in stops:
-        if stop > 9 and stop < 64: # not finished
-            return None,None,None
-    #aa_seq = aa_seq.replace('*','',72)
-    length_diff = 75 - len(aa_seq)
-    return stops,length_diff,aa_seq
+    unstopped_region_length, unstopped_region = max((len(ss), ss) for ss in aa_seq.split('*')) # Get longest segment of AA sequence without stop codons
+    unstopped_region = unstopped_region[-75:] # Get the last 75 AAs - Most likely not needed
+    if unstopped_region_length >= options.min_frame:
+        return unstopped_region
+    else:
+        return None
 
 
 def convert_To_Frames(seq_id,seq,Reads):
@@ -51,30 +25,39 @@ def convert_To_Frames(seq_id,seq,Reads):
     #rev_seq = revCompIterative(seq)
 
     aa_seq = translate_frame(seq)
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:1',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:1', aa_seq])
+
+    ######################
     aa_seq = translate_frame(seq[1:])
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:2',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:2', aa_seq])
+
+    #######################
     aa_seq = translate_frame(seq[2:])
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:3',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:3', aa_seq])
+
     ##################################################
     aa_seq = translate_frame(revCompIterative(seq))
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:4',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:4', aa_seq])
+
+    #################################
     aa_seq = translate_frame(revCompIterative(seq[:len(seq)-1]))
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:5',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:5', aa_seq])
+
+    #################################
     aa_seq = translate_frame(revCompIterative(seq[:len(seq)-2]))
-    stops,length_diff,aa_seq = check_For_Stops(aa_seq)
+    aa_seq = check_For_Stops(aa_seq)
     if aa_seq != None:
-        Reads[seq_id].append([seq_id+'_Frame:6',aa_seq])
+        Reads[seq_id].append([seq_id + '_Frame:6', aa_seq])
 
     return Reads
 
@@ -118,7 +101,7 @@ def revCompIterative(watson): #Gets Reverse Complement
 
 
 def DNA_To_Frames(fasta_in):#,chunk_line):
-    chunk_size = 100
+
     count = 0
     first = True
     Reads = collections.defaultdict(list)
@@ -154,6 +137,7 @@ def DNA_To_Frames(fasta_in):#,chunk_line):
     for listElem in list(Reads.values()):
         Filtered_Frames += len(listElem)
     per_read = (Filtered_Frames/Filtered_Reads)
+    print(count)
     print(Filtered_Reads)
     print(Filtered_Frames)
     print(per_read)
@@ -175,8 +159,14 @@ if __name__ == "__main__":
                         help='Number of Reads to for each Chunk')
     parser.add_argument('-m', '--model_file', action='store', dest='model_file', required=False,
                         help='Pretrained model to use')
+    # parser.add_argument('-in_stops', action="store", dest='in_stops', default=False, type=eval, choices=[True, False],
+    #                     help='Default - False: Remove frames with Stops codons between positions 10-65 ')
+    # parser.add_argument('-stops', action="store", dest='stops', default=False, type=eval, choices=[True, False],
+    #                     help='Default - True: Extract longest region without Stops codons')
+    parser.add_argument('-min_frame', action="store", dest='min_frame', default=50, type=int,
+                        help='Default - 50: Minimum frame size in AA')
     parser.add_argument('-o', '--output_prefix', action='store', dest='out_prefix',
-                        help='Output prefix')
+                        help='Output file prefix')
     parser.add_argument('-GPU', action="store", dest='gpu', default=False, type=eval, choices=[True, False],
                         help='Default - False: Use GPU for computation')
     options = parser.parse_args()
@@ -214,17 +204,11 @@ if __name__ == "__main__":
                 first = False
             current_chunk_num +=1
 
-            if len(lines) == 68393404:
-                break
-
-
         lines.append(line)
         Reads = DNA_To_Frames(lines)
         print("Reads")
-        line = []
-        del lines
-        model = keras.models.load_model("./current_model")
-        predictor(Reads, model)
+        model = keras.models.load_model(options.model_file)
+        predictor(Reads, model, options)
 
     # try: # Detect whether fasta/gff files are .gz or text and read accordingly
     #     fasta_in = gzip.open(options.fasta,'rt')
@@ -239,52 +223,5 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-  # class_2 = mymodle.predict_generator(test_generator)
-    #
-    # print(class_2)
-
-
-
-
-    # import collections
-    #
-    # correctness = collections.defaultdict(int)
-    #
-    # input = open('../Extended_CoDing_Sequences_For_Training_test.csv','r')
-    #
-    # data = {}
-    # for line in input:
-    #     id = line.split(',')[0]
-    #     classif = line.split(',')[2]
-    #     data.update({id:classif})
-    #
-    # for idx, classf in enumerate(tuple_run):
-    #     classf = classf[0]
-    #     classf = int(data[classf])
-    #     score = classifying[idx]
-    #     score = score.item()
-    #     score = round(score)
-    #     if score == classf:
-    #         correctness["Correct"] +=1
-    #     else:
-    #         correctness["Incorrect"] +=1
-    #
-    # print(correctness["Correct"])
-    # print(correctness["Incorrect"])
-
-# confusion = tf.confusion_matrix(labels=y_, predictions=y, num_classes=num_classes)
-# print(confusion)
 
 

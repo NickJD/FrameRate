@@ -52,6 +52,8 @@ def translate_frame(sequence):
     return translate
 
 def fasta_load(sequences,fasta_in):
+    ID_to_num = collections.defaultdict(str)
+    count = 0
     first = True
     for line in fasta_in:
         line = line.strip()
@@ -59,18 +61,22 @@ def fasta_load(sequences,fasta_in):
             continue
         elif line.startswith('>') and not first:
             sequences.update({sequence_name: seq})
-            if len(sequences) == 100000: # to be removed
-                break # and this
+            #if len(sequences) == 100000: # to be removed
+            #    break # and this
             seq = ''
-            sequence_name = line.split()[0]
+            sequence_name = line.split('_')[0] + '_' + str(count)
+            count +=1
+            ID_to_num[line.strip()] = sequence_name
         elif line.startswith('>'):
             seq = ''
-            sequence_name = line.split()[0]
+            sequence_name = line.split('_')[0] + '_' + str(count)
+            count +=1
+            ID_to_num[line.strip()] = sequence_name
         else:
             seq += str(line)
             first = False
     sequences.update({sequence_name: seq})
-    return sequences
+    return sequences,ID_to_num
 
 
 sequences = collections.OrderedDict()
@@ -84,11 +90,6 @@ seq_counter = 0
 seen_aa = collections.defaultdict()
 
 number_of_CDSs = 0
-
-
-
-
-
 
 
 
@@ -117,76 +118,81 @@ if __name__ == "__main__":
         out_file = gzip.open(options.out_file+'.gz', 'wt', newline='\n', encoding='utf-8')
     else:
         out_file = open(options.out_file, 'w', newline='\n', encoding='utf-8')
+        conversion_out_file = open(options.out_file+'_ID_to_num.csv', 'w', newline='\n', encoding='utf-8')
 
     if options.fasta_in:
-        try: # Detect whether fasta files are .gz or text and read accordingly
-            fasta_in = gzip.open(options.fasta_in,'rt')
-        except:
-            fasta_in = open(options.fasta_in,'r')
+        #try: # Detect whether fasta files are .gz or text and read accordingly
+        #    fasta_in = gzip.open(options.fasta_in,'rt')
+        #except:
+        fasta_in = open(options.fasta_in,'r')
         sequences = collections.OrderedDict()
-        sequences = fasta_load(sequences, fasta_in,'combined')
-    elif options.dir_in:
-        directory_in = options.dir_in.split(',')[0]
-        extension_in = options.dir_in.split(',')[1]
-        for file_in in glob.glob(directory_in+'/*'+extension_in):
-            current_identifier = file_in.split('/')[-1].split(extension_in)[0]
-            try:  # Detect whether fasta files are .gz or text and read accordingly
-                fasta_in = gzip.open(file_in, 'rt')
-            except:
-                fasta_in = open(file_in, 'r')
-            sequences = collections.OrderedDict()
-            sequences = fasta_load(sequences, fasta_in)
-            number_of_CDSs += len(sequences)
-            for seq_name, seq in sequences.items():
-                seq_name = seq_name.replace('>', '')
-                rev_seq = revCompIterative(seq)
-                ### Frame 1
-                aa_seq = translate_frame(seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',1\n' + aa_seq + '\n')
-                    seq_counter += 1
-                ### Frame 2
-                tmp_seq = seq[1:]
-                aa_seq = translate_frame(tmp_seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',0\n' + aa_seq + '\n')
-                    seq_counter += 1
-                ### Frame 3
-                tmp_seq = tmp_seq[1:]
-                aa_seq = translate_frame(tmp_seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',0\n' + aa_seq + '\n')
-                    seq_counter += 1
-                ### Frame 4
-                aa_seq = translate_frame(rev_seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',0\n' + aa_seq + '\n')
-                    seq_counter += 1
-                ### Frame 5
-                tmp_rev_seq = rev_seq[1:]
-                aa_seq = translate_frame(tmp_rev_seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',0\n' + aa_seq + '\n')
-                    seq_counter += 1
-                ### Frame 6
-                tmp_rev_seq = tmp_rev_seq[1:]
-                aa_seq = translate_frame(tmp_rev_seq)
-                aa_seq = aa_seq[1:]
-                if aa_seq not in seen_aa:
-                    seen_aa[aa_seq] = None
-                    out_file.write('>' + current_identifier + '_' + seq_name + '_' + str(seq_counter) + ',' + str(count) + ',0\n' + aa_seq + '\n')
-                    seq_counter += 1
+        sequences,ID_to_num = fasta_load(sequences, fasta_in)#,'combined')
+        for ID, num in ID_to_num.items():
+            conversion_out_file.write(ID + ',' + num + '\n')
 
-                count += 1
-            current_counter += 1
-            break
+
+    # elif options.dir_in:
+    #     directory_in = options.dir_in.split(',')[0]
+    #     extension_in = options.dir_in.split(',')[1]
+    #     for file_in in glob.glob(directory_in+'/*'+extension_in):
+    #         current_identifier = file_in.split('/')[-1].split(extension_in)[0]
+    #         try:  # Detect whether fasta files are .gz or text and read accordingly
+    #             fasta_in = gzip.open(file_in, 'rt')
+    #         except:
+    #             fasta_in = open(file_in, 'r')
+    #         sequences = collections.OrderedDict()
+    #         sequences = fasta_load(sequences, fasta_in)
+        number_of_CDSs += len(sequences)
+        for seq_name, seq in sequences.items():
+            seq_name = seq_name.replace('>', '')
+            rev_seq = revCompIterative(seq)
+            ### Frame 1
+            aa_seq = translate_frame(seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',1\n' + aa_seq + '\n')
+                seq_counter += 1
+            ### Frame 2
+            tmp_seq = seq[1:]
+            aa_seq = translate_frame(tmp_seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_counter += 1
+            ### Frame 3
+            tmp_seq = tmp_seq[1:]
+            aa_seq = translate_frame(tmp_seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_counter += 1
+            ### Frame 4
+            aa_seq = translate_frame(rev_seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_counter += 1
+            ### Frame 5
+            tmp_rev_seq = rev_seq[1:]
+            aa_seq = translate_frame(tmp_rev_seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_counter += 1
+            ### Frame 6
+            tmp_rev_seq = tmp_rev_seq[1:]
+            aa_seq = translate_frame(tmp_rev_seq)
+            aa_seq = aa_seq[1:]
+            if aa_seq not in seen_aa:
+                seen_aa[aa_seq] = None
+                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_counter += 1
+
+            count += 1
+        current_counter += 1
+            #break

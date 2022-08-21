@@ -4,7 +4,7 @@ import sys
 import gc
 
 
-def predictor(Reads,model):
+def predictor(Reads,model,options):
     multi_Coding_Reads = collections.defaultdict(list)
 
     params = get_params(11)
@@ -38,8 +38,8 @@ def predictor(Reads,model):
     classified = list(zip(idfromseq, classif))
 
     ## Turn classified into a dict or loop through it and turn it into a dict by picking most likely coding frame by using the frame with highest score
-    Coding = open('Coding.fa','a')
-    Non_Coding = open('Non_Coding.fa', 'a')
+    Coding = open(options.out_prefix+'_Coding.fa','a')
+    Non_Coding = open(options.out_prefix+'_Non_Coding.fa', 'a')
     for key, value in classified:
         current_read = key.split('_')[0]
         frames = Reads[current_read]
@@ -66,9 +66,9 @@ def predictor(Reads,model):
             else:
                 sys.exit("Crashed")
 
-    multi_out = open('./multi_out.fa','a')
-    for key, value in multi_Coding_Reads.items():
-        multi_out.write(str(key)+'_'+str(value)+'\n')
+    # multi_out = open('./multi_out.fa','a')
+    # for key, value in multi_Coding_Reads.items():
+    #     multi_out.write(str(key)+'_'+str(value)+'\n')
 
     del classified, classifying, Reads, idfromseq, id2seq, model, multi_Coding_Reads, tuple_run, data_generator, prot2embed
     gc.collect()
