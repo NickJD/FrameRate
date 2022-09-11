@@ -61,8 +61,8 @@ def frame_scores(frames,collection):
     for line in frames:
         if line.startswith('>'):
             score = line.split('Score:')[1].strip()
-            collection[line.strip().strip('>')].append(float(score))
-            current_id = line.strip().strip('>')
+            collection[line.split(' ')[0].strip().strip('>')].append(float(score)) # reove the split here
+            current_id = line.split(' ')[0].strip().strip('>') # and here
         else:
             collection[current_id].append(len(line.strip()))
 
@@ -206,15 +206,16 @@ if __name__ == "__main__":
     Non_Coding_Frames = open(options.non_coding, 'r')
     Non_Coding_Frames_Collection,nc_num_frames,nc_mean_length,nc_percentile_length_25,nc_percentile_length_75,nc_std_length,nc_min_length,nc_max_length,\
            nc_mean_score,nc_percentile_score_25,nc_percentile_score_75,nc_std_score,nc_min_score,nc_max_score = frame_scores(Non_Coding_Frames,Non_Coding_Frame_Collection)
-    print("FraneRate Output Frame Metrics:")
+    print("FrameRate Output Frame Metrics:")
     print("Metric\tCoding Frames\tNon-Coding Frames")
     print("Number of Frames\t"+str(c_num_frames)+"\t"+str(nc_num_frames)+"\nMean confidence score\t"+str(c_mean_score)+"\t"+str(nc_mean_score)+"\n75th-Percentile score\t"+
           str(c_percentile_score_75)+"\t"+str(nc_percentile_score_75)+"\n25th-Percentile score\t"+str(c_percentile_score_25)+"\t"+str(nc_percentile_score_25)+"\nStandard Dev score\t"+
           str(c_std_score)+"\t"+str(nc_std_score)+"\nMinimum confidence score\t"+str(c_min_score)+"\t"+str(nc_min_score)+"\nMaximum confidence score\t"+str(c_max_score)+"\t"+str(nc_max_score)+
-          "\nMean length\t"+str(c_mean_length)+"\t"+str(nc_mean_length)+"\n75th-Percentile score\t"+str(c_percentile_length_75)+"\t"+str(nc_percentile_length_75)+"\n25th-Percentile score\t"+
+          "\nMean length\t"+str(c_mean_length)+"\t"+str(nc_mean_length)+"\n75th-Percentile length\t"+str(c_percentile_length_75)+"\t"+str(nc_percentile_length_75)+"\n25th-Percentile length\t"+
           str(c_percentile_length_25)+"\t"+str(nc_percentile_length_25)+"\nStandard Dev length\t"+str(c_std_length)+"\t"+str(nc_std_length)+"\nMinimum length\t"+str(c_min_length)+"\t"+str(nc_min_length)+
           "\nMaximum length\t"+str(c_max_length)+"\t"+str(nc_max_length))
     ################### Swiss-Prot
+
     Coding_Frames_Swiss = open(options.swiss_coding, 'r')
     Coding_Frames_Collection,c_swiss_num_frames,c_swiss_mean_length,c_swiss_percentile_length_25,c_swiss_percentile_length_75,c_swiss_std_length,\
     c_swiss_min_length,c_swiss_max_length,c_swiss_mean_score,c_swiss_percentile_score_25,c_swiss_percentile_score_75,c_swiss_std_score,c_swiss_min_score,\
@@ -228,7 +229,7 @@ if __name__ == "__main__":
     nc_swiss_max_score,nc_swiss_mean_pident,nc_swiss_percentile_pident_25,nc_swiss_percentile_pident_75,nc_swiss_std_pident,nc_swiss_min_pident,nc_swiss_max_pident,\
     nc_swiss_mean_bitscores,nc_swiss_percentile_bitscores_25,nc_swiss_percentile_bitscores_75,nc_swiss_std_bitscores,nc_swiss_min_bitscores,nc_swiss_max_bitscores \
         = swiss_scores(Non_Coding_Frames_Swiss,Non_Coding_Frame_Collection)
-    print("\n\nFraneRate Output Frame with Swiss-Prot Hit Metrics:")
+    print("\n\nFrameRate Output Frame with Swiss-Prot Hit Metrics:")
     print("Metric\tCoding Frames\tNon-Coding Frames")
     print("Number of Frames\t"+str(c_swiss_num_frames)+"\t"+str(nc_swiss_num_frames)+"\nMean confidence score\t"+str(c_swiss_mean_score)+"\t"+str(nc_swiss_mean_score)+"\n75th-Percentile score\t"+
           str(c_swiss_percentile_score_75)+"\t"+str(nc_swiss_percentile_score_75)+"\n25th-Percentile score\t"+str(c_swiss_percentile_score_25)+"\t"+str(nc_swiss_percentile_score_25)+"\nStandard Dev score\t"+
@@ -260,7 +261,7 @@ if __name__ == "__main__":
     nc_eggnog_percentile_pident_25,nc_eggnog_percentile_pident_75,nc_eggnog_std_pident,nc_eggnog_min_pident,nc_eggnog_max_pident,nc_eggnog_mean_bitscores,nc_eggnog_percentile_bitscores_25,nc_eggnog_percentile_bitscores_75,\
     nc_eggnog_std_bitscores,nc_eggnog_min_bitscores,nc_eggnog_max_bitscores = EggNOG_frame_scores(Non_Coding_Frames_EggNOG, Non_Coding_Frames_Collection,Non_Coding_COGs)
     ###
-    print("FraneRate Output Frame with EggNOG Hit Metrics:")
+    print("FrameRate Output Frame with EggNOG Hit Metrics:")
     print("Metric\tCoding Frames\tNon-Coding Frames")
     print("Number of Frames\t"+str(c_eggnog_num_frames)+"\t"+str(nc_eggnog_num_frames)+"\nMean confidence score\t"+str(c_eggnog_mean_score)+"\t"+str(nc_eggnog_mean_score)+"\n75th-Percentile score\t"+
           str(c_eggnog_percentile_score_75)+"\t"+str(nc_eggnog_percentile_score_75)+"\n25th-Percentile score\t"+str(c_eggnog_percentile_score_25)+"\t"+str(nc_eggnog_percentile_score_25)+"\nStandard Dev score\t"+

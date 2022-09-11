@@ -4,7 +4,7 @@ import collections
 import os
 import re
 import argparse
-
+import tqdm
 
 def revCompIterative(watson):  # Gets Reverse Complement
     complements = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C', 'N': 'N',
@@ -52,31 +52,30 @@ def translate_frame(sequence):
     return translate
 
 def fasta_load(sequences,fasta_in):
-    ID_to_num = collections.defaultdict(str)
     count = 0
     first = True
-    for line in fasta_in:
+    for line in tqdm.tqdm(fasta_in):
         line = line.strip()
         if line.startswith(';'):
             continue
         elif line.startswith('>') and not first:
-            sequences.update({sequence_name: seq})
+            sequences.update({sequence_name: [original_id,seq]})
             #if len(sequences) == 100000: # to be removed
             #    break # and this
             seq = ''
             sequence_name = line.split('_')[0] + '_' + str(count)
             count +=1
-            ID_to_num[line.strip()] = sequence_name
+            original_id = line.split(' ')[0]
         elif line.startswith('>'):
             seq = ''
             sequence_name = line.split('_')[0] + '_' + str(count)
             count +=1
-            ID_to_num[line.strip()] = sequence_name
+            original_id = line.split(' ')[0]
         else:
             seq += str(line)
             first = False
-    sequences.update({sequence_name: seq})
-    return sequences,ID_to_num
+    sequences.update({sequence_name: [original_id,seq]})
+    return sequences
 
 
 sequences = collections.OrderedDict()
@@ -116,6 +115,7 @@ if __name__ == "__main__":
 
     if options.gz:
         out_file = gzip.open(options.out_file+'.gz', 'wt', newline='\n', encoding='utf-8')
+        conversion_out_file = open(options.out_file + '_ID_to_num.csv.gz', 'wt', newline='\n', encoding='utf-8')
     else:
         out_file = open(options.out_file, 'w', newline='\n', encoding='utf-8')
         conversion_out_file = open(options.out_file+'_ID_to_num.csv', 'w', newline='\n', encoding='utf-8')
@@ -126,9 +126,8 @@ if __name__ == "__main__":
         #except:
         fasta_in = open(options.fasta_in,'r')
         sequences = collections.OrderedDict()
-        sequences,ID_to_num = fasta_load(sequences, fasta_in)#,'combined')
-        for ID, num in ID_to_num.items():
-            conversion_out_file.write(ID + ',' + num + '\n')
+        sequences = fasta_load(sequences, fasta_in)#,'combined')
+
 
 
     # elif options.dir_in:
@@ -143,23 +142,27 @@ if __name__ == "__main__":
     #         sequences = collections.OrderedDict()
     #         sequences = fasta_load(sequences, fasta_in)
         number_of_CDSs += len(sequences)
-        for seq_name, seq in sequences.items():
+        for seq_name, data in tqdm.tqdm(sequences.items()):
             seq_name = seq_name.replace('>', '')
-            rev_seq = revCompIterative(seq)
+            rev_seq = revCompIterative(data[1])
             ### Frame 1
-            aa_seq = translate_frame(seq)
+            aa_seq = translate_frame(data[1])
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',1\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',1'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
             ### Frame 2
-            tmp_seq = seq[1:]
+            tmp_seq = data[1][1:]
             aa_seq = translate_frame(tmp_seq)
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',0'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
             ### Frame 3
             tmp_seq = tmp_seq[1:]
@@ -167,14 +170,18 @@ if __name__ == "__main__":
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',0'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
             ### Frame 4
             aa_seq = translate_frame(rev_seq)
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',0'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
             ### Frame 5
             tmp_rev_seq = rev_seq[1:]
@@ -182,7 +189,9 @@ if __name__ == "__main__":
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',0'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
             ### Frame 6
             tmp_rev_seq = tmp_rev_seq[1:]
@@ -190,7 +199,9 @@ if __name__ == "__main__":
             aa_seq = aa_seq[1:]
             if aa_seq not in seen_aa:
                 seen_aa[aa_seq] = None
-                out_file.write('>' + seq_name + '_' + str(seq_counter) + ',0\n' + aa_seq + '\n')
+                seq_id = '>' + seq_name + '_' + str(seq_counter) + ',0'
+                out_file.write(seq_id + '\n' + aa_seq + '\n')
+                conversion_out_file.write(seq_id + ',' + data[0] + ',' + data[1] +  '\n')
                 seq_counter += 1
 
             count += 1
